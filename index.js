@@ -32,7 +32,12 @@ bot.start(async (ctx) => {
 bot.action("categories", async (ctx) => {
   await ctx.answerCbQuery();
   try {
-    const { data } = await axios.get(`${MZR_BASE}/v1/category`, { timeout: 10000 });
+    const { data } = await axios.get(`${MZR_BASE}/v1/category`, {
+  headers: {
+    "X-API-Key": MZR_API_KEY
+  },
+  timeout: 10000
+});
 
     if (!data.success || !data.categories?.length) {
       return ctx.reply("⚠️ هیچ دسته‌ای یافت نشد.");
@@ -118,4 +123,5 @@ bot.action("help", async (ctx) => {
 // ---- LAUNCH BOT ----
 bot.launch();
 console.log("✅ Bot started successfully!");
+
 
