@@ -1,22 +1,15 @@
 // =============================
-// Adel E Store Telegram Bot (Render Fixed Version)
+// Adel E Store Telegram Bot (MZR GAMES Official API Version)
 // =============================
 
-import dotenv from "dotenv";
-import { Telegraf, Markup } from "telegraf";
-import axios from "axios";
-
-dotenv.config();
+require("dotenv").config();
+const { Telegraf, Markup } = require("telegraf");
+const axios = require("axios");
 
 // ---- ENV VARIABLES ----
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const MZR_API_KEY = process.env.MZR_API_KEY;
 const MZR_BASE = process.env.MZR_BASE;
-
-if (!BOT_TOKEN) {
-  console.error("❌ BOT_TOKEN is missing! Check Render Environment Variables.");
-  process.exit(1);
-}
 
 // ---- BOT INIT ----
 const bot = new Telegraf(BOT_TOKEN);
@@ -26,7 +19,7 @@ bot.start(async (ctx) => {
   await ctx.reply(
     `سلام 👋 به فروشگاه Adel UC خوش آمدی!\nیک گزینه انتخاب کن:`,
     Markup.inlineKeyboard([
-      [Markup.button.callback("📦 لیست پکیج‌ها", "list")],
+      [Markup.button.callback("📂 دسته‌بندی‌ها", "categories")],
       [Markup.button.callback("💰 موجودی حساب", "balance")],
       [Markup.button.callback("ℹ️ راهنما", "help")],
     ])
@@ -34,39 +27,50 @@ bot.start(async (ctx) => {
 });
 
 // =============================
-// 📦 ACTION: LIST PACKAGES (with API Key header)
+// 📂 ACTION: LIST CATEGORIES
 // =============================
-bot.action("list", async (ctx) => {
+bot.action("categories", async (ctx) => {
   await ctx.answerCbQuery();
-  const base = (MZR_BASE || "").replace(/\/$/, "");
-
   try {
-    const { data } = await axios.get(`${base}/v1/products`, {
-      headers: { "X-API-Key": MZR_API_KEY },
-      timeout: 15000,
-    });
+    const { data } = await axios.get(`${MZR_BASE}/v1/category`, { timeout: 10000 });
 
-    if (!data?.success || !Array.isArray(data.products)) {
-      return ctx.reply("⚠️ هیچ محصولی یافت نشد.");
+    if (!data.success || !data.categories?.length) {
+      return ctx.reply("⚠️ هیچ دسته‌ای یافت نشد.");
     }
 
-    // فقط محصولات PUBG
-    const products = data.products.filter((p) =>
-      /pubg/i.test(p.category_title || "")
-    );
-
-    if (!products.length) {
-      return ctx.reply("⚠️ هیچ محصولی برای PUBG یافت نشد.");
-    }
-
-    const buttons = products.map((p) => [
-      Markup.button.callback(`${p.name} 💵 ${p.price}$`, `buy_${p.id}`),
+    const buttons = data.categories.map((cat) => [
+      Markup.button.callback(`${cat.title} (${cat.product_count})`, `cat_${cat.id}`),
     ]);
 
-    await ctx.reply("🎮 لیست پکیج‌های PUBG UC:", Markup.inlineKeyboard(buttons));
+    await ctx.reply("📋 لیست دسته‌بندی‌ها:", Markup.inlineKeyboard(buttons));
   } catch (err) {
-    console.error("List Error:", err.message);
-    await ctx.reply("⚠️ خطا در دریافت لیست پکیج‌ها.");
+    console.error("Category Error:", err.message);
+    await ctx.reply("⚠️ خطا در دریافت دسته‌ها.");
+  }
+});
+
+// =============================
+// 📦 ACTION: SHOW PRODUCTS FROM CATEGORY
+// =============================
+bot.action(/^cat_(\d+)/, async (ctx) => {
+  const categoryId = ctx.match[1];
+  await ctx.answerCbQuery();
+
+  try {
+    const { data } = await axios.get(`${MZR_BASE}/v1/category/${categoryId}`, { timeout: 10000 });
+
+    if (!data.success || !data.products?.length) {
+      return ctx.reply("⚠️ هیچ محصولی در این دسته یافت نشد.");
+    }
+
+    const buttons = data.products.map((p) => [
+      Markup.button.callback(`${p.title} 💵 ${p.unit_price}$`, `buy_${p.id}`),
+    ]);
+
+    await ctx.reply("🎮 لیست محصولات:", Markup.inlineKeyboard(buttons));
+  } catch (err) {
+    console.error("Product Error:", err.message);
+    await ctx.reply("⚠️ خطا در دریافت محصولات.");
   }
 });
 
@@ -80,7 +84,7 @@ bot.action("balance", async (ctx) => {
       headers: { "X-API-Key": MZR_API_KEY },
     });
 
-    if (!data?.success) return ctx.reply("❌ خطا در دریافت موجودی.");
+    if (!data.success) return ctx.reply("❌ خطا در دریافت موجودی.");
     await ctx.reply(`💰 موجودی شما: ${data.balance} AFN`);
   } catch (err) {
     console.error("Balance Error:", err.message);
@@ -89,7 +93,7 @@ bot.action("balance", async (ctx) => {
 });
 
 // =============================
-// 🧾 ACTION: PURCHASE (Buy Product)
+// 🧾 ACTION: PURCHASE PRODUCT
 // =============================
 bot.action(/^buy_(\d+)/, async (ctx) => {
   const productId = ctx.match[1];
@@ -100,14 +104,14 @@ bot.action(/^buy_(\d+)/, async (ctx) => {
     const playerId = msgCtx.message.text;
     try {
       const { data } = await axios.post(
-        `${MZR_BASE}/v1/products/${productId}/purchase`,
+        `${MZR_BASE}/v1/topup/pubgMobile/offers/${productId}/purchase`,
         { player_id: playerId },
         { headers: { "X-API-Key": MZR_API_KEY } }
       );
 
-      if (data?.success) {
+      if (data.success) {
         await msgCtx.reply(
-          `✅ سفارش شما ثبت شد!\n📦 شماره سفارش: ${data.order_id}\n🧾 وضعیت: در حال پردازش`
+          `✅ سفارش شما ثبت شد!\n🧾 وضعیت: ${data.message || "در حال پردازش"}`
         );
       } else {
         await msgCtx.reply("⚠️ خرید ناموفق بود، لطفاً بعداً دوباره تلاش کنید.");
@@ -125,7 +129,7 @@ bot.action(/^buy_(\d+)/, async (ctx) => {
 bot.action("help", async (ctx) => {
   await ctx.answerCbQuery();
   await ctx.reply(
-    `📘 راهنما:\n1️⃣ روی "📦 لیست پکیج‌ها" بزن.\n2️⃣ پکیج دلخواه را انتخاب کن.\n3️⃣ PUBG ID خود را بفرست تا سفارش ثبت شود.`
+    `📘 راهنما:\n1️⃣ روی "📂 دسته‌بندی‌ها" بزن.\n2️⃣ یک دسته را انتخاب کن.\n3️⃣ محصول دلخواه را بخر.\n4️⃣ PUBG ID خود را بفرست تا سفارش ثبت شود.`
   );
 });
 
