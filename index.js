@@ -1,15 +1,22 @@
 // =============================
-// Adel E Store Telegram Bot (Final Fixed Version)
+// Adel E Store Telegram Bot (Render Fixed Version)
 // =============================
 
-require("dotenv").config();
-const { Telegraf, Markup } = require("telegraf");
-const axios = require("axios");
+import dotenv from "dotenv";
+import { Telegraf, Markup } from "telegraf";
+import axios from "axios";
+
+dotenv.config();
 
 // ---- ENV VARIABLES ----
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const MZR_API_KEY = process.env.MZR_API_KEY;
 const MZR_BASE = process.env.MZR_BASE;
+
+if (!BOT_TOKEN) {
+  console.error("❌ BOT_TOKEN is missing! Check Render Environment Variables.");
+  process.exit(1);
+}
 
 // ---- BOT INIT ----
 const bot = new Telegraf(BOT_TOKEN);
@@ -31,7 +38,7 @@ bot.start(async (ctx) => {
 // =============================
 bot.action("list", async (ctx) => {
   await ctx.answerCbQuery();
-  const base = MZR_BASE.replace(/\/$/, "");
+  const base = (MZR_BASE || "").replace(/\/$/, "");
 
   try {
     const { data } = await axios.get(`${base}/v1/products`, {
@@ -39,17 +46,13 @@ bot.action("list", async (ctx) => {
       timeout: 15000,
     });
 
-    console.log("Products response:", data);
-
-    if (!data.success || !data.products || !data.products.length) {
+    if (!data?.success || !Array.isArray(data.products)) {
       return ctx.reply("⚠️ هیچ محصولی یافت نشد.");
     }
 
-    // فیلتر فقط محصولات PUBG
-    const products = data.products.filter(
-      (p) =>
-        p.category_title &&
-        /pubg/i.test(p.category_title)
+    // فقط محصولات PUBG
+    const products = data.products.filter((p) =>
+      /pubg/i.test(p.category_title || "")
     );
 
     if (!products.length) {
@@ -62,7 +65,7 @@ bot.action("list", async (ctx) => {
 
     await ctx.reply("🎮 لیست پکیج‌های PUBG UC:", Markup.inlineKeyboard(buttons));
   } catch (err) {
-    console.error("List Error:", err.response?.status, err.response?.data || err.message);
+    console.error("List Error:", err.message);
     await ctx.reply("⚠️ خطا در دریافت لیست پکیج‌ها.");
   }
 });
@@ -77,10 +80,10 @@ bot.action("balance", async (ctx) => {
       headers: { "X-API-Key": MZR_API_KEY },
     });
 
-    if (!data.success) return ctx.reply("❌ خطا در دریافت موجودی.");
+    if (!data?.success) return ctx.reply("❌ خطا در دریافت موجودی.");
     await ctx.reply(`💰 موجودی شما: ${data.balance} AFN`);
   } catch (err) {
-    console.error("Balance Error:", err.response?.status, err.response?.data || err.message);
+    console.error("Balance Error:", err.message);
     await ctx.reply("⚠️ خطا در دریافت موجودی.");
   }
 });
@@ -102,9 +105,7 @@ bot.action(/^buy_(\d+)/, async (ctx) => {
         { headers: { "X-API-Key": MZR_API_KEY } }
       );
 
-      console.log("Purchase response:", data);
-
-      if (data.success) {
+      if (data?.success) {
         await msgCtx.reply(
           `✅ سفارش شما ثبت شد!\n📦 شماره سفارش: ${data.order_id}\n🧾 وضعیت: در حال پردازش`
         );
@@ -112,7 +113,7 @@ bot.action(/^buy_(\d+)/, async (ctx) => {
         await msgCtx.reply("⚠️ خرید ناموفق بود، لطفاً بعداً دوباره تلاش کنید.");
       }
     } catch (err) {
-      console.error("Purchase Error:", err.response?.status, err.response?.data || err.message);
+      console.error("Purchase Error:", err.message);
       await msgCtx.reply("❌ خطا در انجام خرید.");
     }
   });
