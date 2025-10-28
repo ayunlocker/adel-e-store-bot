@@ -67,28 +67,10 @@ bot.action(/^cat_(\d+)/, async (ctx) => {
       Markup.button.callback(`${p.title} 💵 ${p.unit_price}$`, `buy_${p.id}`),
     ]);
 
-    await ctx.reply("🎮 لیست محصولات:", Markup.inlineKeyboard(buttons));
+    await ctx.reply(`🎮 محصولات دسته ${categoryId}:`, Markup.inlineKeyboard(buttons));
   } catch (err) {
     console.error("Product Error:", err.message);
     await ctx.reply("⚠️ خطا در دریافت محصولات.");
-  }
-});
-
-// =============================
-// 💰 ACTION: BALANCE
-// =============================
-bot.action("balance", async (ctx) => {
-  await ctx.answerCbQuery();
-  try {
-    const { data } = await axios.get(`${MZR_BASE}/v1/getMe`, {
-      headers: { "X-API-Key": MZR_API_KEY },
-    });
-
-    if (!data.success) return ctx.reply("❌ خطا در دریافت موجودی.");
-    await ctx.reply(`💰 موجودی شما: ${data.balance} AFN`);
-  } catch (err) {
-    console.error("Balance Error:", err.message);
-    await ctx.reply("⚠️ خطا در دریافت موجودی.");
   }
 });
 
@@ -136,3 +118,4 @@ bot.action("help", async (ctx) => {
 // ---- LAUNCH BOT ----
 bot.launch();
 console.log("✅ Bot started successfully!");
+
